@@ -5,14 +5,13 @@ networks:
 services:
   postgres:
     image: postgres:latest
+    restart: always
     environment:
       POSTGRES_DB: fastfood
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: S3nh4F0rt3!
     ports:
       - "5432:5432"
-    volumes:
-      - .src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
 

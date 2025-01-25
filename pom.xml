@@ -65,17 +65,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>no-db</id>
-            <activation>
-                <property>
-                    <name>spring.profiles.active</name>
-                    <value>no-db</value>
-                </property>
-            </activation>
-        </profile>
-    </profiles>
-
 </project>

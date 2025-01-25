@@ -8,9 +8,5 @@ public interface PedidoQueueIntegration {
     @Transactional
     PedidoQueue enviaParaFila(Pedido pedido);
 
-    PedidoQueue getItem(Long id);
-
-    void delete(Long id);
-
     PedidoQueue getItemByPedidoId(Long pedidoId);
 }

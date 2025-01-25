@@ -29,16 +29,6 @@ public class PedidoQueueIntegrationImpl implements PedidoQueueIntegration {
     }
 
     @Override
-    public PedidoQueue getItem(Long id) {
-        return entityManager.find(PedidoQueue.class, id);
-    }
-
-    @Override
-    public void delete(Long id) {
-        entityManager.remove(entityManager.find(PedidoQueue.class, id));
-    }
-
-    @Override
     public PedidoQueue getItemByPedidoId(Long pedidoId) {
         String jpql = "SELECT p FROM PedidoQueue p WHERE p.pedido.id = :pedidoId";
         TypedQuery<PedidoQueue> query = entityManager.createQuery(jpql, PedidoQueue.class);
