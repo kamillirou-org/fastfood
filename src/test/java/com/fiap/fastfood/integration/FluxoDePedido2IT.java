@@ -1,12 +1,12 @@
 package com.fiap.fastfood.integration;
 
-import com.fiap.fastfood.adapters.in.dto.CriarPedidoDTO;
-import com.fiap.fastfood.adapters.in.dto.PedidoDTO;
-import com.fiap.fastfood.core.application.PedidoQueueIntegration;
-import com.fiap.fastfood.core.application.repository.ClienteRepository;
-import com.fiap.fastfood.core.application.repository.PedidoRepository;
-import com.fiap.fastfood.core.application.repository.ProdutoRepository;
-import com.fiap.fastfood.core.domain.*;
+import com.fiap.fastfood.core.entities.ProductCategory;
+import com.fiap.fastfood.core.entities.Produto;
+import com.fiap.fastfood.core.in.repository.ClienteRepository;
+import com.fiap.fastfood.core.in.repository.PedidoQueueIntegration;
+import com.fiap.fastfood.core.in.repository.PedidoRepository;
+import com.fiap.fastfood.core.in.repository.ProdutoRepository;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.AfterEach;
@@ -15,11 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;

@@ -1,0 +1,32 @@
+package com.fiap.fastfood.core.entities;
+
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Table(name = "cliente")
+@Getter
+@Setter
+public class Cliente {
+
+    @Id
+    private long id;
+
+    private String cpf;
+
+    private String email;
+
+    private String nome;
+
+    protected Cliente() {}
+
+    public Cliente(String cpf, String email, String nome) {
+        this.cpf = cpf;
+        this.email = email;
+        this.nome = nome;
+    }
+}
