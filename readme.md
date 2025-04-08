@@ -57,7 +57,7 @@ Tudo pode ser visto com exemplos no swagger
 
 Passo 1: Clonar o projeto
 ```
-git clone https://github.com/seu-usuario/fastfood.git
+git clone https://github.com/kamillirou/fastfood.git
 cd fastfood
 ```
 Passo 2: Build da imagem
@@ -88,13 +88,7 @@ http://localhost:8080/swagger-ui.html
 
 ### 📹 Demonstração em Vídeo
 
-Assista no YouTube: 
-
-O vídeo mostra:
-- Estrutura dos arquivos YAML
-- Aplicação rodando via Kubernetes
-- Testes dos endpoints usando Swagger
-- Escalabilidade com  HPA
+https://youtu.be/5vQ--m6xG2o
 
 ⸻
 
