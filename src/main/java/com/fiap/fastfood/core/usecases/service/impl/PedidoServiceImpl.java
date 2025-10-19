@@ -1,5 +1,6 @@
 package com.fiap.fastfood.core.usecases.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,8 +46,8 @@ public class PedidoServiceImpl implements PedidoService {
             if(cliente == null) {
                 cliente = new Cliente(cpfCliente, pedidoDTO.getClienteNome(), pedidoDTO.getClienteEmail());
                 clienteRepository.save(cliente);
-                pedido.setCliente(cliente);
             }
+            pedido.setCliente(cliente);
         }
         pedido.setNomeCliente(pedidoDTO.getClienteNome());
         pedido.setEmailCliente(pedidoDTO.getClienteEmail());
@@ -65,6 +66,7 @@ public class PedidoServiceImpl implements PedidoService {
         }).collect(Collectors.toSet());
 
         pedido.setPedidoProduto(produtos);
+        pedido.setDataPedido(LocalDateTime.now());
         pedidoRepository.save(pedido);
         pedidoQueueIntegration.enviaParaFila(pedido);
 
