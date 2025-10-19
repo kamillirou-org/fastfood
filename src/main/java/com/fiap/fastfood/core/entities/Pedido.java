@@ -35,7 +35,5 @@ public class Pedido {
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<PedidoProduto> pedidoProduto;
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
     private LocalDateTime dataPedido;
 }
