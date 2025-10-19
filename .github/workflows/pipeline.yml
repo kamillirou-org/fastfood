@@ -36,7 +36,6 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,4 +73,44 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "Image pushed to ECR: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-    
+
+      - name: Update ECS Task Definition
+        run: |
+          # Atualiza a Task Definition para usar a nova imagem
+          TASK_DEFINITION=$(aws ecs describe-task-definition \
+            --task-definition fastfood-infra-app \
+            --region us-east-1 \
+            --query 'taskDefinition')
+          
+          # Cria nova versão da Task Definition com a nova imagem
+          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+          
+          # Registra nova Task Definition
+          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEFINITION | aws ecs register-task-definition \
+            --region us-east-1 \
+            --cli-input-json file:///dev/stdin \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          echo "New Task Definition ARN: $NEW_TASK_DEF_ARN"
+
+      - name: Update ECS Service
+        run: |
+          # Atualiza o service para usar a nova Task Definition
+          aws ecs update-service \
+            --cluster fastfood-infra-cluster \
+            --service fastfood-infra-service \
+            --task-definition $NEW_TASK_DEF_ARN \
+            --region us-east-1
+          echo "ECS service update initiated with new Task Definition"
+
+      - name: Wait for deployment to complete
+        run: |
+          # Aguarda o deployment completar
+          aws ecs wait services-stable \
+            --cluster fastfood-infra-cluster \
+            --services fastfood-infra-service \
+            --region us-east-1
+          echo "ECS service deployment completed"
+
