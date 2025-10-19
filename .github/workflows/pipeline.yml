@@ -67,6 +67,16 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Verifica se as variáveis estão definidas
+          echo "ECR_REGISTRY: $ECR_REGISTRY"
+          echo "ECR_REPOSITORY: $ECR_REPOSITORY"
+          echo "IMAGE_TAG: $IMAGE_TAG"
+          
+          if [ -z "$ECR_REGISTRY" ] || [ -z "$ECR_REPOSITORY" ] || [ -z "$IMAGE_TAG" ]; then
+            echo "❌ Error: Missing required environment variables"
+            exit 1
+          fi
+          
           # Build a docker container and push it to ECR
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
@@ -77,16 +87,40 @@ jobs:
       - name: Update ECS Task Definition
         id: update-task-def
         run: |
+          # Constrói a URL completa da imagem
+          FULL_IMAGE_URL="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Full image URL: $FULL_IMAGE_URL"
+          
           # Atualiza a Task Definition para usar a nova imagem
           aws ecs describe-task-definition \
             --task-definition fastfood-infra-app \
             --region us-east-1 \
             --query 'taskDefinition' > current-task-def.json
           
+          # Verifica se o arquivo foi criado corretamente
+          if [ ! -f current-task-def.json ]; then
+            echo "❌ Error: Failed to get current task definition"
+            exit 1
+          fi
+          
+          # Mostra a imagem atual
+          CURRENT_IMAGE=$(jq -r '.containerDefinitions[0].image' current-task-def.json)
+          echo "Current image: $CURRENT_IMAGE"
+          
           # Cria nova versão da Task Definition com a nova imagem
-          jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+          jq --arg IMAGE "$FULL_IMAGE_URL" \
             '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)' \
             current-task-def.json > new-task-def.json
+          
+          # Verifica se o novo arquivo foi criado
+          if [ ! -f new-task-def.json ]; then
+            echo "❌ Error: Failed to create new task definition"
+            exit 1
+          fi
+          
+          # Mostra a nova imagem que será usada
+          NEW_IMAGE=$(jq -r '.containerDefinitions[0].image' new-task-def.json)
+          echo "New image: $NEW_IMAGE"
           
           # Registra nova Task Definition
           NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
