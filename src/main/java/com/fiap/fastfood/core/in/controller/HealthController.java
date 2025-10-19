@@ -25,7 +25,7 @@ public class HealthController {
     public ResponseEntity<Map<String, Object>> info() {
         Map<String, Object> response = new HashMap<>();
         response.put("application", "Fastfood");
-        response.put("version", "0.0.1-SNAPSHOT");
+        response.put("version", "1.0.1-SNAPSHOT");
         response.put("profile", "prod");
         return ResponseEntity.ok(response);
     }
