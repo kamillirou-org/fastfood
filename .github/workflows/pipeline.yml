@@ -86,7 +86,20 @@ jobs:
 
       - name: Update ECS Task Definition
         id: update-task-def
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Verifica se as variáveis estão definidas
+          echo "ECR_REGISTRY: $ECR_REGISTRY"
+          echo "ECR_REPOSITORY: $ECR_REPOSITORY"
+          echo "IMAGE_TAG: $IMAGE_TAG"
+          
+          if [ -z "$ECR_REGISTRY" ] || [ -z "$ECR_REPOSITORY" ] || [ -z "$IMAGE_TAG" ]; then
+            echo "❌ Error: Missing required environment variables"
+            exit 1
+          fi
+          
           # Constrói a URL completa da imagem
           FULL_IMAGE_URL="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           echo "Full image URL: $FULL_IMAGE_URL"
@@ -153,10 +166,135 @@ jobs:
 
       - name: Wait for deployment to complete
         run: |
-          # Aguarda o deployment completar
-          aws ecs wait services-stable \
+          echo "⏳ Waiting for ECS service to stabilize..."
+          
+          # Aguarda com timeout mais longo e melhor diagnóstico
+          timeout 600 aws ecs wait services-stable \
             --cluster fastfood-infra-cluster \
             --services fastfood-infra-service \
-            --region us-east-1
-          echo "ECS service deployment completed"
+            --region us-east-1 || {
+            
+            echo "⚠️ Service did not stabilize within timeout. Checking status..."
+            
+            # Verifica o status do service
+            SERVICE_STATUS=$(aws ecs describe-services \
+              --cluster fastfood-infra-cluster \
+              --services fastfood-infra-service \
+              --region us-east-1 \
+              --query 'services[0].status' \
+              --output text)
+            
+            echo "Service status: $SERVICE_STATUS"
+            
+            # Lista os deployments
+            aws ecs describe-services \
+              --cluster fastfood-infra-cluster \
+              --services fastfood-infra-service \
+              --region us-east-1 \
+              --query 'services[0].deployments[*].{Status:status,RunningCount:runningCount,PendingCount:pendingCount,DesiredCount:desiredCount,CreatedAt:createdAt}' \
+              --output table
+            
+            # Lista as tasks
+            TASK_ARNS=$(aws ecs list-tasks \
+              --cluster fastfood-infra-cluster \
+              --service-name fastfood-infra-service \
+              --region us-east-1 \
+              --query 'taskArns' \
+              --output text)
+            
+            if [ "$TASK_ARNS" != "None" ] && [ "$TASK_ARNS" != "" ]; then
+              echo "📋 Checking task details..."
+              aws ecs describe-tasks \
+                --cluster fastfood-infra-cluster \
+                --tasks $TASK_ARNS \
+                --region us-east-1 \
+                --query 'tasks[*].{TaskArn:taskArn,LastStatus:lastStatus,DesiredStatus:desiredStatus,HealthStatus:healthStatus,CreatedAt:createdAt}' \
+                --output table
+              
+              # Verifica logs das tasks se possível
+              for TASK_ARN in $TASK_ARNS; do
+                echo "🔍 Checking logs for task: $TASK_ARN"
+                aws logs describe-log-groups \
+                  --log-group-name-prefix "/ecs/fastfood" \
+                  --region us-east-1 \
+                  --query 'logGroups[0].logGroupName' \
+                  --output text 2>/dev/null || echo "No log groups found"
+              done
+            fi
+            
+            echo "❌ Deployment did not complete successfully"
+            exit 1
+          }
+          
+          echo "✅ ECS service deployment completed successfully"
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment status..."
+          
+          # Aguarda um pouco mais para garantir que a aplicação esteja pronta
+          sleep 30
+          
+          # Verifica o status do deployment
+          DEPLOYMENT_STATUS=$(aws ecs describe-services \
+            --cluster fastfood-infra-cluster \
+            --services fastfood-infra-service \
+            --region us-east-1 \
+            --query 'services[0].deployments[0].status' \
+            --output text)
+          
+          echo "Deployment status: $DEPLOYMENT_STATUS"
+          
+          if [ "$DEPLOYMENT_STATUS" = "PRIMARY" ]; then
+            echo "✅ Deployment successful - containers updated with new image"
+          else
+            echo "❌ Deployment failed or still in progress"
+            
+            # Mostra detalhes adicionais em caso de falha
+            aws ecs describe-services \
+              --cluster fastfood-infra-cluster \
+              --services fastfood-infra-service \
+              --region us-east-1 \
+              --query 'services[0].deployments[*].{Status:status,RunningCount:runningCount,PendingCount:pendingCount,DesiredCount:desiredCount,CreatedAt:createdAt}' \
+              --output table
+            
+            exit 1
+          fi
+
+      - name: Health check application
+        run: |
+          echo "🏥 Checking application health..."
+          
+          # Obtém o ALB endpoint
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --region us-east-1 \
+            --query 'LoadBalancers[?contains(LoadBalancerName, `fastfood`)].DNSName' \
+            --output text)
+          
+          if [ "$ALB_DNS" != "None" ] && [ "$ALB_DNS" != "" ]; then
+            echo "ALB DNS: $ALB_DNS"
+            
+            # Testa o health check
+            HEALTH_URL="http://$ALB_DNS/health"
+            echo "Testing health endpoint: $HEALTH_URL"
+            
+            # Aguarda a aplicação estar pronta
+            for i in {1..10}; do
+              if curl -f -s "$HEALTH_URL" > /dev/null; then
+                echo "✅ Application is healthy and responding"
+                break
+              else
+                echo "⏳ Attempt $i/10: Application not ready yet, waiting..."
+                sleep 10
+              fi
+            done
+            
+            # Última tentativa
+            if ! curl -f -s "$HEALTH_URL" > /dev/null; then
+              echo "⚠️ Application health check failed, but deployment may still be successful"
+              echo "Check CloudWatch logs for more details"
+            fi
+          else
+            echo "⚠️ Could not find ALB DNS, skipping health check"
+          fi
 
