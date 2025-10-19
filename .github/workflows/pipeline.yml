@@ -75,6 +75,7 @@ jobs:
           echo "Image pushed to ECR: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
       - name: Update ECS Task Definition
+        id: update-task-def
         run: |
           # Atualiza a Task Definition para usar a nova imagem
           aws ecs describe-task-definition \
@@ -95,14 +96,24 @@ jobs:
             --output text)
           
           echo "New Task Definition ARN: $NEW_TASK_DEF_ARN"
+          echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_OUTPUT
 
       - name: Update ECS Service
         run: |
           # Atualiza o service para usar a nova Task Definition
+          NEW_TASK_DEF_ARN="${{ steps.update-task-def.outputs.NEW_TASK_DEF_ARN }}"
+          
+          if [ -z "$NEW_TASK_DEF_ARN" ]; then
+            echo "❌ Error: NEW_TASK_DEF_ARN is empty"
+            exit 1
+          fi
+          
+          echo "Using Task Definition: $NEW_TASK_DEF_ARN"
+          
           aws ecs update-service \
             --cluster fastfood-infra-cluster \
             --service fastfood-infra-service \
-            --task-definition $NEW_TASK_DEF_ARN \
+            --task-definition "$NEW_TASK_DEF_ARN" \
             --region us-east-1
           echo "ECS service update initiated with new Task Definition"
 
